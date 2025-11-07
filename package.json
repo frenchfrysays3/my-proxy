@@ -1,0 +1,26 @@
+{
+  "name": "my-proxy",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index"
+  },
+  "keywords": [],
+  "author": {
+    "name": "Lucas Fry",
+    "email": "frenchfrysays.alt@gmail.com",
+    "url": "https://github.com/frenchfrysays3"
+  },
+  "license": "MIT",
+  "type": "commonjs",
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "express": "^5.1.0",
+    "express-basic-auth": "^1.2.1",
+    "node-fetch": "^2.7.0"
+  }
+}
