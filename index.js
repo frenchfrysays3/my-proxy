@@ -40,7 +40,7 @@ app.get('/', BasicAuth, async (req, res) => {
     // client-side appender script for optional append behaviour.
     if (contentType.toLowerCase().includes('text/html')) {
       try {
-        // Rewrite <a href=...> only. Preserve mailto:, javascript:, anchors, and already-proxied links.
+        // Rewrite anchor hrefs to proxied absolute URLs
         content = content.replace(/<a\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^>\s]+))/ig, function(match, ddouble, dsingle, dunquoted) {
           const href = ddouble || dsingle || dunquoted || '';
           if (!href) return match;
@@ -51,14 +51,46 @@ app.get('/', BasicAuth, async (req, res) => {
           try {
             const abs = new URL(href, url).href;
             const prox = '/?url=' + encodeURIComponent(abs);
-            // replace the href value portion inside the matched tag
             return match.replace(/href\s*=\s*(?:"[^"]*"|'[^']*'|[^>\s]+)/i, 'href="' + prox + '"');
           } catch (e) {
             return match;
           }
         });
+
+        // Rewrite src attributes for common resource tags (script,img,iframe,video,audio)
+        content = content.replace(/<(script|img|iframe|video|audio)\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^>\s]+))/ig, function(match, tag, ddouble, dsingle, dunquoted) {
+          const src = ddouble || dsingle || dunquoted || '';
+          if (!src) return match;
+          const lower = src.toLowerCase();
+          if (lower.startsWith('data:') || lower.startsWith('blob:') || lower.startsWith('javascript:') || src.startsWith('/?url=')) return match;
+          try {
+            const abs = new URL(src, url).href;
+            const prox = '/?url=' + encodeURIComponent(abs);
+            return match.replace(/src\s*=\s*(?:"[^"]*"|'[^']*'|[^>\s]+)/i, 'src="' + prox + '"');
+          } catch (e) {
+            return match;
+          }
+        });
+
+        // Rewrite link href (stylesheets, preloads)
+        content = content.replace(/<link\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^>\s]+))/ig, function(match, ddouble, dsingle, dunquoted) {
+          const href = ddouble || dsingle || dunquoted || '';
+          if (!href) return match;
+          const lower = href.toLowerCase();
+          if (lower.startsWith('data:') || lower.startsWith('blob:') || href.startsWith('/?url=')) return match;
+          try {
+            const abs = new URL(href, url).href;
+            const prox = '/?url=' + encodeURIComponent(abs);
+            return match.replace(/href\s*=\s*(?:"[^"]*"|'[^']*'|[^>\s]+)/i, 'href="' + prox + '"');
+          } catch (e) {
+            return match;
+          }
+        });
+
+        // Remove CSP meta tags that may block our injected script
+        content = content.replace(/<meta[^>]+http-equiv\s*=\s*(?:"|')?content-security-policy(?:"|')?[^>]*>/ig, '');
       } catch (e) {
-        console.error('Error rewriting links:', e);
+        console.error('Error rewriting resources:', e);
       }
 
       // simple HTML escape for the injected data attribute
@@ -73,7 +105,6 @@ app.get('/', BasicAuth, async (req, res) => {
 
       const injected = '<script data-proxy-base="' + escapeHtml(url) + '">(function(){var base=document.currentScript.getAttribute("data-proxy-base");function findAnchor(el){while(el&&el.nodeName!=="A")el=el.parentElement;return el;}function handleClick(e){try{var a=findAnchor(e.target);if(!a||!a.getAttribute) return;var href=a.getAttribute(' + "'href'" + ');if(!href) return;e.preventDefault();var target;try{target=new URL(href,base).href;}catch(err){console.error(err);return;}fetch(window.location.pathname+"?url="+encodeURIComponent(target)).then(function(r){return r.text();}).then(function(html){var wrapper=document.createElement("div");wrapper.innerHTML=html;document.body.appendChild(wrapper);}).catch(function(err){console.error(err);});}document.addEventListener("click",handleClick);})();</script>';
 
-      // Try to insert before closing </body>, fall back to appending at end
       if (/<\/body>/i.test(content)) {
         content = content.replace(/<\/body>/i, injected + '</body>');
       } else {

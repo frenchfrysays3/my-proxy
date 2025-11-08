@@ -13,4 +13,4 @@ cd my-proxy
 3) Install required dependencies: `npm i --omit=dev`
 4) Start with `node index`
 
-Go to localhost:3000/?url=https://example.com (or whichever url you wanna go to) and your all set!
+Go to [localhost:3000/?url=https://example.com](localhost:3000/?url=https://example.com) (or whichever url you wanna go to) and your all set!
